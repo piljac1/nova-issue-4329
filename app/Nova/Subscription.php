@@ -156,11 +156,11 @@ class Subscription extends Resource
             ->whereNotIn('category_id', $selectedCategories)
             ->forceDelete();
 
-        $newsletterCategories = $subscription->subscriptionCategories
+        $subscriptionCategories = $subscription->subscriptionCategories
             ->toArray();
 
         foreach ($selectedCategories as $selectedCategory) {
-            if (! in_array($selectedCategory, $newsletterCategories)) {
+            if (! in_array($selectedCategory, $subscriptionCategories)) {
                 SubscriptionCategory::create([
                     'category_id' => $selectedCategory,
                     'subscription_id' => $subscription->id,
