@@ -81,7 +81,34 @@ class Subscription extends Resource
                     ->dependsOn(
                         ['site_id'],
                         function (BooleanGroup $field, NovaRequest $request, FormData $formData) {
-                            $field->options(FakeApi::getCategoryNames($formData->site_id));
+                            // The filled resource is only available on the initial request.
+                            // It is not made available on dependsOn request, so you have to query
+                            // the database to retrieve the model if the resource is an empty model
+                            // (that's the case if no attributes are set).
+                            $subscription = $this->resource?->getAttributes()
+                                ? $this
+                                : SubscriptionModel::find($request->resourceId);
+
+                            $categories = FakeApi::getCategoryNames($formData->site_id);
+
+                            $subscriptionCategories = $subscription?->subscriptionCategories ?? collect();
+    
+                            $selectedCategories = $categories
+                                ->mapWithKeys(
+                                    function ($category, $categoryKey)
+                                    use ($formData, $subscription, $subscriptionCategories) {
+                                        return [
+                                            $categoryKey => (
+                                                $subscription?->site_id === $formData->site_id
+                                                && $subscriptionCategories->contains('category_id', $categoryKey)
+                                            )
+                                        ];
+                                    }
+                                )
+                                ->toArray();
+
+                            $field->options($categories)
+                                ->withMeta(['value' => $selectedCategories]);
                         }
                     )
                     ->fillUsing(function ($request) {
@@ -93,24 +120,32 @@ class Subscription extends Resource
                         $request->merge(['selected_subscription_categories' => $selectedCategories]);
                     })
                     // If you comment resolveUsing, the dependsOn logic works (reactive).
-                    ->resolveUsing(function ($category, $subscription) {
-                        // Since resolveUsing is called everytime dependsOn gets triggered,
-                        // I had to check request()->site_id first because when creating, there's no model instance set.
-                        // Even if the $siteId contains the appropriate value
-                        // and $options are assigned properly, the mere fact that a resolveUsing callback is defined
-                        // seems to completely render the dependant behavior unreactive.
-                        $siteId = request()->site_id ?: $subscription->site_id;
+                    // ->resolveUsing(function ($category, $subscription) {
+                    //     // Since resolveUsing is called everytime dependsOn gets triggered,
+                    //     // I had to check request()->site_id first because when creating, there's no model instance set.
+                    //     // Even if the $siteId contains the appropriate value
+                    //     // and $options are assigned properly, the mere fact that a resolveUsing callback is defined
+                    //     // seems to completely render the dependant behavior unreactive.
+                    //     $siteId = request()->site_id ?: $subscription->site_id;
 
-                        $categories = FakeApi::getCategoryNames($siteId);
+                    //     $categories = FakeApi::getCategoryNames($siteId);
 
-                        $subscriptionCategories = $subscription->subscriptionCategories;
+                    //     $subscriptionCategories = $subscription->subscriptionCategories;
 
-                        return $categories
-                            ->mapWithKeys(function ($category, $categoryKey) use ($subscriptionCategories) {
-                                return [$categoryKey => $subscriptionCategories->contains('category_id', $categoryKey)];
-                            })
-                            ->toArray();
-                    })
+                    //     return $categories
+                    //         ->mapWithKeys(
+                    //             function ($category, $categoryKey)
+                    //             use ($subscription, $siteId, $subscriptionCategories) {
+                    //                 return [
+                    //                     $categoryKey => (
+                    //                         $siteId === $subscription->site_id
+                    //                         && $subscriptionCategories->contains('category_id', $categoryKey)
+                    //                     )
+                    //                 ];
+                    //             }
+                    //         )
+                    //         ->toArray();
+                    // })
                     ->onlyOnForms(),
                 
                 ...$categoryPresentationFields,
