@@ -121,6 +121,14 @@ class Subscription extends Resource
                     })
                     // If you comment resolveUsing, the dependsOn logic works (reactive).
                     // ->resolveUsing(function ($category, $subscription) {
+                    //     // The filled resource is only available on the initial request.
+                    //     // It is not made available on dependsOn request, so you have to query
+                    //     // the database to retrieve the model if the resource is an empty model
+                    //     // (that's the case if no attributes are set).
+                    //     $subscription = $subscription?->getAttributes()
+                    //         ? $subscription
+                    //         : SubscriptionModel::find(request()->resourceId);
+
                     //     // Since resolveUsing is called everytime dependsOn gets triggered,
                     //     // I had to check request()->site_id first because when creating, there's no model instance set.
                     //     // Even if the $siteId contains the appropriate value
